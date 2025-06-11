@@ -1,0 +1,204 @@
+
+#include <iostream>
+#include <cstring>
+#include <cstdlib>
+#include <queue> // Para implementar FIFO
+#include <iomanip> // Para formato de impresión
+
+using namespace std;
+
+// enumeración para definir el color de los nodos
+enum Color { ROJO, NEGRO };
+
+// estructura de un nodo del arbol Rojo-Negro
+struct Nodo {
+    char nombre[100];        // nombre de la pelicula
+    int anio;                // Año de lanzamiento
+    char genero[50];         // genero de la pelicula
+    float recaudacion;       // recaudación en millones
+    Color color;             // color del nodo (Rojo o Negro)
+    Nodo *izquierda, *derecha, *padre; // punteros a hijos y padre
+};
+
+// funcion para crear un nuevo nodo
+Nodo* crearNodo(const char* nombre, int anio, const char* genero, float recaudacion) {
+    Nodo* nuevo = (Nodo*)malloc(sizeof(Nodo)); // asigna memoria dinamica
+    strcpy(nuevo->nombre, nombre);             // copia el nombre
+    nuevo->anio = anio;                        // asigna el año
+    strcpy(nuevo->genero, genero);             //copia el genero
+    nuevo->recaudacion = recaudacion;          // asigna la recaudación
+    nuevo->color = ROJO;                       // todos los nuevos nodos son rojos
+    nuevo->izquierda = nuevo->derecha = nuevo->padre = nullptr; // inicializa punteros
+    return nuevo;                              //devuelve el nodo creado
+}
+
+// rotacion a la izquierda en el arbol
+void rotacionIzquierda(Nodo* &raiz, Nodo* x) {
+    Nodo* y = x->derecha;             // y toma el hijo derecho de x
+    x->derecha = y->izquierda;        // x adopta el hijo izquierdo de y
+    if (y->izquierda != nullptr)
+        y->izquierda->padre = x;      // se actualiza el padre
+    y->padre = x->padre;              // y hereda el padre de x
+    if (x->padre == nullptr)
+        raiz = y;                     // y se convierte en la nueva raíz si x era raíz
+    else if (x == x->padre->izquierda)
+        x->padre->izquierda = y;      // x era hijo izquierdo
+    else
+        x->padre->derecha = y;        // x era hijo derecho
+    y->izquierda = x;                 // x se convierte en hijo izquierdo de y
+    x->padre = y;                     // y es ahora el padre de x
+}
+
+// rotacion a la derecha en el arbol
+void rotacionDerecha(Nodo* &raiz, Nodo* y) {
+    Nodo* x = y->izquierda;           // x toma el hijo izquierdo de y
+    y->izquierda = x->derecha;        // y adopta el hijo derecho de x
+    if (x->derecha != nullptr)
+        x->derecha->padre = y;        //se actualiza el padre
+    x->padre = y->padre;              // x hereda el padre de y
+    if (y->padre == nullptr)
+        raiz = x;                     // x se convierte en la nueva raíz si y era raíz
+    else if (y == y->padre->izquierda)
+        y->padre->izquierda = x;      // y era hijo izquierdo
+    else
+        y->padre->derecha = x;        // y era hijo derecho
+    x->derecha = y;                   // y se convierte en hijo derecho de x
+    y->padre = x;                     // x es ahora el padre de y
+}
+
+// funcion para balancear despues de una insercion
+void balancearInsercion(Nodo* &raiz, Nodo* nodo) {
+    while (nodo != raiz && nodo->padre && nodo->padre->color == ROJO) {
+        Nodo* abuelo = nodo->padre->padre;
+        if (nodo->padre == abuelo->izquierda) {
+            Nodo* tio = abuelo->derecha;
+            if (tio && tio->color == ROJO) {
+                nodo->padre->color = NEGRO;
+                tio->color = NEGRO;
+                abuelo->color = ROJO;
+                nodo = abuelo;
+            } else {
+                if (nodo == nodo->padre->derecha) {
+                    nodo = nodo->padre;
+                    rotacionIzquierda(raiz, nodo);
+                }
+                nodo->padre->color = NEGRO;
+                abuelo->color = ROJO;
+                rotacionDerecha(raiz, abuelo);
+            }
+        } else {
+            Nodo* tio = abuelo->izquierda;
+            if (tio && tio->color == ROJO) {
+                nodo->padre->color = NEGRO;
+                tio->color = NEGRO;
+                abuelo->color = ROJO;
+                nodo = abuelo;
+            } else {
+                if (nodo == nodo->padre->izquierda) {
+                    nodo = nodo->padre;
+                    rotacionDerecha(raiz, nodo);
+                }
+                nodo->padre->color = NEGRO;
+                abuelo->color = ROJO;
+                rotacionIzquierda(raiz, abuelo);
+            }
+        }
+    }
+    raiz->color = NEGRO; // La raiz siempre es negra
+}
+
+//funcion para insertar un nodo en el arbol
+void insertar(Nodo* &raiz, Nodo* nodo) {
+    Nodo* y = nullptr;
+    Nodo* x = raiz;
+
+    while (x != nullptr) {
+        y = x;
+        if (nodo->anio < x->anio || nodo->anio == x->anio)
+            x = x->izquierda;
+        else
+            x = x->derecha;
+    }
+
+    nodo->padre = y;
+    if (y == nullptr)
+        raiz = nodo;
+    else if (nodo->anio < y->anio || nodo->anio == y->anio)
+        y->izquierda = nodo;
+    else
+        y->derecha = nodo;
+
+    balancearInsercion(raiz, nodo); // balancear despues de insertar
+}
+
+// funcion para imprimir el arbol de forma visual estilo FIFO (por niveles)
+void imprimirPorNiveles(Nodo* raiz) {
+    if (!raiz) return;
+
+    queue<pair<Nodo*, int>> q; // cola para BFS con nivel
+    q.push({raiz, 0});
+    int nivelActual = 0;
+    cout << "\nNivel 0: ";
+
+    while (!q.empty()) {
+        Nodo* nodo = q.front().first;
+        int nivel = q.front().second;
+        q.pop();
+
+        if (nivel != nivelActual) {
+            cout << "\nNivel " << nivel << ": ";
+            nivelActual = nivel;
+        }
+
+        cout << "[" << nodo->nombre << " (" << nodo->anio << ", "
+             << nodo->genero << ", $" << nodo->recaudacion << "M, "
+             << (nodo->color == ROJO ? "Rojo" : "Negro") << ")] ";
+
+        if (nodo->izquierda) q.push({nodo->izquierda, nivel + 1});
+        if (nodo->derecha) q.push({nodo->derecha, nivel + 1});
+    }
+    cout << endl;
+}
+
+// funcion para liberar la memoria del arbol
+void liberarMemoria(Nodo* raiz) {
+    if (!raiz) return;
+    liberarMemoria(raiz->izquierda);
+    liberarMemoria(raiz->derecha);
+    free(raiz);
+}
+
+//funcion principal
+int main() {
+    Nodo* raiz = nullptr; // arbol vacío inicialmente
+    int opcion;           //para controlar el menu
+
+    do {
+        // Menu de opciones
+        cout << "\n1. Insertar película\n";
+        cout << "2. Mostrar árbol por niveles\n";
+        cout << "0. Salir\n";
+        cout << "Opción: ";
+        cin >> opcion;
+        cin.ignore(); // limpiar buffer
+
+        if (opcion == 1) {
+            // ingreso de datos de la pelicula
+            char nombre[100], genero[50];
+            int anio;
+            float recaudacion;
+            cout << "Nombre: "; cin.getline(nombre, 100);
+            cout << "Año: "; cin >> anio; cin.ignore();
+            cout << "Género: "; cin.getline(genero, 50);
+            cout << "Recaudación (en millones): "; cin >> recaudacion; cin.ignore();
+
+            Nodo* nuevo = crearNodo(nombre, anio, genero, recaudacion); // crear nodo
+            insertar(raiz, nuevo); // insertar en el arbol
+        } else if (opcion == 2) {
+            imprimirPorNiveles(raiz); // imprimir arbol estilo FIFO
+        }
+    } while (opcion != 0); // salir cuando se ingrese 0
+
+    liberarMemoria(raiz); // liberar toda la memoria
+    return 0;
+}
